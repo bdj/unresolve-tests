@@ -170,8 +170,10 @@
 ;(write-recomp (read-module "base-2_rkt_merged.zo") "base-2-done.zo")
 ;(write-recomp (read-module "list_rkt_merged.zo") "list-done.zo")
 ;(write-recomp (read-module "namespace_rkt_merged.zo") "namespace-done.zo")
-;(write-recomp (read-module "compiled/namespace_rkt.zo") "namespace-done.zo")
-(show* (read-module "compiled/namespace_rkt.zo")) 
+(write-recomp (read-module "compiled/namespace_rkt.zo") "namespace-done.zo")
+
+(show (read-module "compiled/namespace_rkt.zo") #:decompile #f) 
+(show (recompile (read-module "compiled/namespace_rkt.zo")) #:decompile #f) 
 ;(show* x-count2)
 ;(show* x-seq)
 ;(show (read-module "a_rkt_merged.zo") #:decompile #f)
