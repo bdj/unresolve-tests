@@ -2,19 +2,42 @@
 (require rackunit
          compiler/zo-parse
          compiler/decompile
+         compiler/cm
+         compiler/compilation-path
+         compiler/demodularizer/main
          racket/pretty)
 
 (define (to-zo e)
   (parameterize ([current-namespace (make-base-namespace)])
     (compile e)))
 
+(define (show e #:decompile [d #t])
+  (define o (open-output-bytes))
+  (write e o)
+  (pretty-print
+   (let ([the-zo (zo-parse (open-input-bytes (get-output-bytes o)))])
+     (if d (decompile the-zo) the-zo))))
+
 (define-syntax-rule (define-test name code)
   (begin
     (define name
       'code)
+    #;(show (to-zo name))
     (check-not-exn (lambda () (recompile (to-zo name)))
                    (format "~a" 'name))))
 
+(define (read-module name)
+  (parameterize ([read-accept-compiled #t])
+    (call-with-input-file name read)))
+
+(define (file-test name)
+  (demodularize name)
+  (define m (read-module (path-add-suffix name #"_merged.zo")))
+  ;(show m)
+  (check-not-exn (lambda () 
+                   (recompile m))
+                 name))
+#|
 (define-test x-letrec
   (lambda (x)
     (letrec ([y (lambda (y) (y y))]
@@ -134,3 +157,7 @@
                   [(b c d) (random)]
                   [(e) (random)])
       (a) (c) (e))))
+|#
+(file-test "stat-dist.rkt")
+;(file-test "five-b.rkt")
+;(file-test "namespace.rkt")
