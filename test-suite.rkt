@@ -8,7 +8,8 @@
          racket/pretty)
 
 (define (to-zo e)
-  (parameterize ([current-namespace (make-base-namespace)])
+  (parameterize ([current-namespace (make-base-namespace)]
+                 [compile-context-preservation-enabled #f])
     (compile e)))
 
 (define (show e #:decompile [d #t])
@@ -22,7 +23,7 @@
   (begin
     (define name
       'code)
-    #;(show (to-zo name))
+    ;(show (to-zo name))
     (check-not-exn (lambda () (recompile (to-zo name)))
                    (format "~a" 'name))))
 
@@ -157,7 +158,34 @@
                   [(b c d) (random)]
                   [(e) (random)])
       (a) (c) (e))))
+
 |#
-(file-test "stat-dist.rkt")
+(define-test stat-dist
+  (module test racket/base
+  (lambda ()
+      (define (loop)
+        (letrec [(c (case-lambda
+                      [() c] ; return itself on zero arguments
+                      [d (loop)]))]
+          c))
+      (loop))))
+#;(define-test segfault
+  (module test racket/base
+    (define (make-curry)
+  ;; The real code is here
+    (let* ([arity (random)]
+           [max-arity (apply max arity)])
+      (define (loop)
+        max-arity
+           (letrec [(curried
+                     (case-lambda
+                       [() curried] ; return itself on zero arguments
+                       [more (loop)]))]
+             curried))
+      (loop)))))
+
+
+;(file-test "stat-dist.rkt")
+;(file-test "five.rkt")
 ;(file-test "five-b.rkt")
 ;(file-test "namespace.rkt")
