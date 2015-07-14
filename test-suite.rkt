@@ -9,7 +9,7 @@
 
 (define (to-zo e)
   (parameterize ([current-namespace (make-base-namespace)]
-                 [compile-context-preservation-enabled #f])
+                 [compile-context-preservation-enabled #t])
     (compile e)))
 
 (define (show e #:decompile [d #t])
@@ -23,7 +23,7 @@
   (begin
     (define name
       'code)
-    ;(show (to-zo name))
+    (show (to-zo name) #:decompile #t)
     (check-not-exn (lambda () (recompile (to-zo name)))
                    (format "~a" 'name))))
 
@@ -159,7 +159,6 @@
                   [(e) (random)])
       (a) (c) (e))))
 
-|#
 (define-test stat-dist
   (module test racket/base
   (lambda ()
@@ -169,7 +168,7 @@
                       [d (loop)]))]
           c))
       (loop))))
-#;(define-test segfault
+(define-test segfault
   (module test racket/base
     (define (make-curry)
   ;; The real code is here
@@ -183,9 +182,36 @@
                        [more (loop)]))]
              curried))
       (loop)))))
+|#
 
+(define-test top-access
+  (module sort '#%kernel
+    (#%require 
+     racket/private/small-scheme 
+     racket/private/define) 
+    (#%provide sort)
+    (define sort
+      (let ()
+        (define sort-internals (make-hasheq))
+        (let ([proc 
+                (lambda (vec n) 
+                  (let* ([n/2- (+ n 1)]
+                         [n/2+ (+ n n/2-)])
+                    (vector-set! vec n/2+ (vector-ref vec 0))
+                    (let iloop ([i 1])
+                      (let ([ref-i (vector-ref vec (+ 0 i))])
+                        (let jloop ([j (+ n/2+ i)])
+                          (vector-set! vec j (vector-ref vec (+ j 1)))
+                          (jloop (+ j 1))
+                          (vector-set! vec j ref-i) 
+                          (iloop (+ i 1))
+                          )))
+                    5555))])
+          (hash-set! sort-internals < proc))
+        55555))))
 
 ;(file-test "stat-dist.rkt")
 ;(file-test "five.rkt")
 ;(file-test "five-b.rkt")
+;(file-test "segfault.rkt")
 ;(file-test "namespace.rkt")

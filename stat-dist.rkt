@@ -1,6 +1,5 @@
 #lang racket/base
 
-(require racket/private/norm-arity)
 
 (define (make-curry)
   ;; The real code is here
