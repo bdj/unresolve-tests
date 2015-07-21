@@ -24,8 +24,9 @@
     (define name
       'code)
     (show (to-zo name) #:decompile #t)
-    (check-not-exn (lambda () (recompile (to-zo name)))
-                   (format "~a" 'name))))
+    (let ([recomp (recompile (to-zo name))])
+      (show recomp #:decompile #t)  
+      (write recomp (open-output-file (path-add-suffix (format "~a" 'name) #"_recomp.zo") #:exists 'replace)))))
 
 (define (read-module name)
   (parameterize ([read-accept-compiled #t])
@@ -36,7 +37,10 @@
   (define m (read-module (path-add-suffix name #"_merged.zo")))
   ;(show m)
   (check-not-exn (lambda () 
-                   (recompile m))
+                   (let ([recomp (recompile m)])
+                      (write recomp (open-output-file (path-add-suffix name #"_recomp.zo") #:exists 'replace))
+                      (read-module (path-add-suffix name #"_recomp.zo")))
+                   )
                  name))
 #|
 (define-test x-letrec
@@ -182,9 +186,17 @@
                        [more (loop)]))]
              curried))
       (loop)))))
-|#
 
-(define-test top-access
+|#
+#;(define-test odd-even
+  (module test racket/base
+    (lambda (m)
+      (define (even n) 
+        (if (= 0 n) '(1 2 3) (odd (- n 1))))
+      (define (odd n)
+        (if (= 0 n) '(4 5 6) (even (- n 1))))
+      (even m))))
+#;(define-test top-access
   (module sort '#%kernel
     (#%require 
      racket/private/small-scheme 
@@ -209,9 +221,23 @@
                     5555))])
           (hash-set! sort-internals < proc))
         55555))))
+(define-test ill-formed
+
+  (module ill-formed racket/private/pre-base
+
+    (define-struct namespace-anchor (var))
+
+    (define (namespace-anchor->empty-namespace ra)
+      (unless (namespace-anchor? ra)
+        (raise-argument-error 'anchor->empty-namespace
+                            "namespace-anchor?"
+                            ra))
+      (variable-reference->empty-namespace (namespace-anchor-var ra)))))
 
 ;(file-test "stat-dist.rkt")
 ;(file-test "five.rkt")
 ;(file-test "five-b.rkt")
 ;(file-test "segfault.rkt")
 ;(file-test "namespace.rkt")
+;(read-module "top-access_recomp.zo")
+;(file-test "ill-formed.rkt")
