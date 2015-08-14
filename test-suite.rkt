@@ -9,7 +9,7 @@
 
 (define (to-zo e)
   (parameterize ([current-namespace (make-base-namespace)]
-                 [compile-context-preservation-enabled #t])
+                 [compile-context-preservation-enabled #f])
     (compile e)))
 
 (define (show e #:decompile [d #t])
@@ -24,7 +24,10 @@
     (define name
       'code)
     (show (to-zo name) #:decompile #t)
-    (let ([recomp (recompile (to-zo name))])
+    (let ([recomp 
+            (parameterize ([current-namespace (make-base-namespace)]
+                           [compile-context-preservation-enabled #f])
+              (compiled-expression-recompile (to-zo name)))])
       (show recomp #:decompile #t)  
       (write recomp (open-output-file (path-add-suffix (format "~a" 'name) #"_recomp.zo") #:exists 'replace)))))
 
@@ -37,8 +40,9 @@
   (define m (read-module (path-add-suffix name #"_merged.zo")))
   ;(show m)
   (check-not-exn (lambda () 
-                   (let ([recomp (recompile m)])
+                   (let ([recomp (compiled-expression-recompile m)])
                       (write recomp (open-output-file (path-add-suffix name #"_recomp.zo") #:exists 'replace))
+                      (show recomp #:decompile #t)
                       (read-module (path-add-suffix name #"_recomp.zo")))
                    )
                  name))
@@ -187,8 +191,7 @@
              curried))
       (loop)))))
 
-|#
-#;(define-test odd-even
+(define-test odd-even
   (module test racket/base
     (lambda (m)
       (define (even n) 
@@ -196,7 +199,7 @@
       (define (odd n)
         (if (= 0 n) '(4 5 6) (even (- n 1))))
       (even m))))
-#;(define-test top-access
+(define-test top-access
   (module sort '#%kernel
     (#%require 
      racket/private/small-scheme 
@@ -233,7 +236,90 @@
                             "namespace-anchor?"
                             ra))
       (variable-reference->empty-namespace (namespace-anchor-var ra)))))
+|#
+#;(define-test varref-test
+  (module varref racket/base
+    (define orig-insp (variable-reference->module-declaration-inspector
+                     (#%variable-reference)))))
+#;(define-test nboyer-test
+  (module nboyer-test racket/base
+    (define (setup-boyer) #t) ; assigned below
 
+    (let ()
+
+      (define (translate-term term)
+        (cons (symbol->symbol-record (car term))
+              (translate-term (cdr term))))
+  
+      (define (symbol->symbol-record sym)
+        (let ((x (assq sym *symbol-records-alist*)))
+          (set! *symbol-records-alist* (random))
+          x))
+
+      (define *symbol-records-alist* '())
+
+      (define false-term '*)  ; becomes (translate-term '(f))
+
+      (set! setup-boyer
+        (lambda ()
+          (set! false-term (translate-term '(f))))))))
+
+#;(define-test set-loop
+  (module set-loop racket/base
+    (let ([x 0]
+          [z 2])
+      (let loop ([y 1]
+                 [w 3])
+        (set! x (+ y x))
+        (set! z (+ x z))
+        (set! w (add1 w))
+        (if (< x 100000)
+          (loop (add1 y) x)
+          (values x y w z))))))
+
+#;(define-test set-loop-simple
+  (module set-loop-simple racket/base
+    (let ([x 0])
+      (let loop ()
+        (set! x (add1 x))
+        (loop)))))
+#;(define-test set-loop-again
+  (module set-loop-again racket/base
+    (let ([x 0]
+          [y 1])
+      (let loop ()
+        (set! x (add1 x))
+        (set! y (+ x y))
+        loop))))
+
+#;(define-test letrec-case-lam
+  (module letrec-case-lam racket/base
+   (define make-pretty-print
+     (lambda (name display? as-qq?)
+       (letrec ([pretty-print
+		 (case-lambda 
+		  [(obj port qq-depth)
+		     (void)]
+                  [(obj port) (pretty-print obj port 0)]
+		  [(obj) (pretty-print obj (current-output-port))])])
+	 pretty-print)))
+
+   (define pretty-print (make-pretty-print 'pretty-print #f #t))))
+
+#;(define-test struct-props
+  (module struct-props racket/base
+    
+    (define-struct make-contract [stronger generate exercise list-contract? ]
+                   #:omit-define-syntaxes
+                   #:property random
+                   (random
+                     1 2 3
+                     #:stronger (lambda (a b) ((make-contract-stronger a) a b))
+                     #:generate (lambda (c) (make-contract-generate c))
+                     #:exercise (lambda (c) (make-contract-exercise c))
+                     #:list-contract? (λ (c) (make-contract-list-contract? c))))))
+
+    
 ;(file-test "stat-dist.rkt")
 ;(file-test "five.rkt")
 ;(file-test "five-b.rkt")
@@ -241,3 +327,12 @@
 ;(file-test "namespace.rkt")
 ;(read-module "top-access_recomp.zo")
 ;(file-test "ill-formed.rkt")
+;(file-test "varref-anon.rkt")
+;(file-test "toplevel.rkt")
+;(file-test "collatz.rkt")
+;(file-test "nboyer2.rkt")
+;(file-test "nqueens.rkt")
+;(file-test "scheme.rkt")
+;(file-test "regress.rkt")
+;(file-test "../demod-benchmarks/a.rkt")
+(file-test "more-scheme.rkt")
